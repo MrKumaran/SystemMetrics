@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Homelab Telemetry</title>
+    <title>Homelab</title> 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <script>
-        // Configure Tailwind for class-based dark mode and custom colors
         tailwind.config = {
             darkMode: 'class',
             theme: {
@@ -22,30 +21,28 @@
         }
     </script>
     <style>
-        /* Hide scrollbars for a cleaner look if data overflows */
         ::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="bg-white text-zinc-900 dark:bg-black dark:text-zinc-50 p-6 md:p-10 transition-colors duration-200 min-h-screen">
+<body class="bg-white text-zinc-900 dark:bg-black dark:text-zinc-50 p-6 md:p-10 transition-colors duration-200 min-h-screen relative">
 
-    <header class="flex flex-col md:flex-row md:items-end justify-between mb-10 pb-6 border-b border-zinc-200 dark:border-zinc-800">
+    <button onclick="toggleTheme()" class="absolute top-6 right-6 md:top-10 md:right-10 p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors" aria-label="Toggle Theme">
+        <i data-lucide="sun-moon" class="w-6 h-6"></i>
+    </button>
+
+    <header class="flex flex-col md:flex-row md:items-end justify-between mb-10 pb-6 border-b border-zinc-200 dark:border-zinc-800 pr-12">
         <div>
             <div class="flex items-center gap-4 mb-1">
-                <h1 class="text-2xl font-bold tracking-tight">Homelab Telemetry</h1>
+                <h1 id="dashboard-title" class="text-2xl font-bold tracking-tight"></h1>
                 <span id="status-badge" class="px-2.5 py-0.5 rounded-full text-xs font-medium border text-zinc-500 border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
                     WAITING FOR DATA
                 </span>
             </div>
             <p class="text-sm text-zinc-500 dark:text-zinc-400">Live 5-minute rolling window</p>
         </div>
-        
-        <button onclick="toggleTheme()" class="mt-4 md:mt-0 p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-500 transition-colors border border-zinc-200 dark:border-zinc-800" aria-label="Toggle Theme">
-            <i data-lucide="sun-moon" class="w-5 h-5"></i>
-        </button>
     </header>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
         <div class="bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg p-5">
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center gap-2">
@@ -96,18 +93,51 @@
     </div>
 
     <script>
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        const DASHBOARD_TITLE = "Homelab Telemetry";
+        
+        // Apply Title
+        document.getElementById('dashboard-title').innerText = DASHBOARD_TITLE;
+        document.title = DASHBOARD_TITLE;
+
         // Initialize Icons
         lucide.createIcons();
 
-        // --- Theme Management ---
+        // --- Theme & Gradient Management ---
+        function getDynamicGradient(chartId, r, g, b) {
+            const canvas = document.getElementById(chartId);
+            if (!canvas) return null;
+            const ctx = canvas.getContext('2d');
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            // Dark mode gets a stronger 40% opacity fill, Light mode gets a softer 15% opacity fill
+            const topOpacity = isDark ? 0.4 : 0.15; 
+            
+            const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+            gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${topOpacity})`);
+            gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+            return gradient;
+        }
+
         function updateChartTheme() {
             const isDark = document.documentElement.classList.contains('dark');
-            Chart.defaults.color = isDark ? '#71717a' : '#a1a1aa'; // text-zinc-500 / 400
-            Chart.defaults.borderColor = isDark ? '#27272a' : '#f4f4f5'; // border-zinc-800 / 100
+            Chart.defaults.color = isDark ? '#71717a' : '#a1a1aa'; 
+            Chart.defaults.borderColor = isDark ? '#27272a' : '#f4f4f5'; 
             
-            if(window.cpuChart && window.memChart && window.netChart) {
+            // Reapply fills whenever theme changes so they look correct in both modes
+            if(window.cpuChart) {
+                window.cpuChart.data.datasets[0].backgroundColor = getDynamicGradient('cpuChart', 59, 130, 246);
                 window.cpuChart.update();
+            }
+            if(window.memChart) {
+                window.memChart.data.datasets[0].backgroundColor = getDynamicGradient('memChart', 139, 92, 246);
                 window.memChart.update();
+            }
+            if(window.netChart) {
+                window.netChart.data.datasets[0].backgroundColor = getDynamicGradient('netChart', 16, 185, 129);
+                window.netChart.data.datasets[1].backgroundColor = getDynamicGradient('netChart', 244, 63, 94);
                 window.netChart.update();
             }
         }
@@ -117,11 +147,12 @@
             updateChartTheme();
         }
 
-        // --- Chart Configurations ---
+        // --- Chart Initializations ---
+        // --- Chart Initializations ---
         const commonOptions = {
             responsive: true,
             maintainAspectRatio: false,
-            animation: false,
+            animation: false, // Keeps polling instant without UI lag
             plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
             scales: {
                 x: { grid: { display: false }, ticks: { maxTicksLimit: 6, font: { family: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' } } },
@@ -131,42 +162,34 @@
             interaction: { mode: 'nearest', axis: 'x', intersect: false }
         };
 
-        // Create standard gradient for lines
-        function createGradient(ctx, color) {
-            const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-            gradient.addColorStop(0, color);
-            gradient.addColorStop(1, 'transparent');
-            return gradient;
-        }
-
         window.cpuChart = new Chart(document.getElementById('cpuChart').getContext('2d'), {
             type: 'line',
-            data: { labels: [], datasets: [{ data: [], borderColor: '#3b82f6', borderWidth: 2, backgroundColor: createGradient(document.getElementById('cpuChart').getContext('2d'), 'rgba(59, 130, 246, 0.2)'), fill: true, tension: 0.2 }] },
+            data: { labels: [], datasets: [{ data: [], borderColor: '#3b82f6', borderWidth: 2, fill: true, tension: 0.4, cubicInterpolationMode: 'monotone' }] },
             options: commonOptions
         });
 
         window.memChart = new Chart(document.getElementById('memChart').getContext('2d'), {
             type: 'line',
-            data: { labels: [], datasets: [{ data: [], borderColor: '#8b5cf6', borderWidth: 2, backgroundColor: createGradient(document.getElementById('memChart').getContext('2d'), 'rgba(139, 92, 246, 0.2)'), fill: true, tension: 0.2 }] },
+            data: { labels: [], datasets: [{ data: [], borderColor: '#8b5cf6', borderWidth: 2, fill: true, tension: 0.4, cubicInterpolationMode: 'monotone' }] },
             options: commonOptions
         });
 
         const netOptions = JSON.parse(JSON.stringify(commonOptions));
-        delete netOptions.scales.y.max; // Network has no 100% cap
+        delete netOptions.scales.y.max; 
         
         window.netChart = new Chart(document.getElementById('netChart').getContext('2d'), {
             type: 'line',
             data: { 
                 labels: [], 
                 datasets: [
-                    { label: 'Download', data: [], borderColor: '#10b981', borderWidth: 2, tension: 0.2 },
-                    { label: 'Upload', data: [], borderColor: '#f43f5e', borderWidth: 2, tension: 0.2 }
+                    { label: 'Download', data: [], borderColor: '#10b981', borderWidth: 2, fill: true, tension: 0.4, cubicInterpolationMode: 'monotone' },
+                    { label: 'Upload', data: [], borderColor: '#f43f5e', borderWidth: 2, fill: true, tension: 0.4, cubicInterpolationMode: 'monotone' }
                 ] 
             },
             options: netOptions
         });
 
-        // Initialize chart theme on load
+        // Apply theme fills on initial load
         updateChartTheme();
 
         // --- Data Fetching Logic ---
@@ -175,7 +198,6 @@
                 const response = await fetch('/api/telemetry');
                 const result = await response.json();
                 
-                // Update Status Badge
                 const badge = document.getElementById('status-badge');
                 if (result.status === 'DOWN') {
                     badge.textContent = 'SERVER DOWN';
@@ -192,7 +214,6 @@
 
                 sortedData.forEach(item => {
                     const date = new Date(item.timestamp);
-                    // Minimalist time format (HH:MM)
                     labels.push(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
                     cpuData.push(item.cpu_percent);
                     memData.push(item.memory.percent);
@@ -208,7 +229,6 @@
                 
                 window.cpuChart.update(); window.memChart.update(); window.netChart.update();
 
-                // Update text values
                 const latest = sortedData[sortedData.length - 1];
                 if(latest) {
                     document.getElementById('cpu-val').innerText = `${latest.cpu_percent.toFixed(1)}%`;
