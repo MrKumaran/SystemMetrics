@@ -1,81 +1,95 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Homelab Dashboard</title>
+    <title>Homelab Telemetry</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <script>
-        // Configure Tailwind dark mode colors
+        // Configure Tailwind for class-based dark mode and custom colors
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
-                    colors: {
-                        slate: { 800: '#1e293b', 900: '#0f172a', 950: '#020617' }
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
                     }
                 }
             }
         }
     </script>
+    <style>
+        /* Hide scrollbars for a cleaner look if data overflows */
+        ::-webkit-scrollbar { display: none; }
+    </style>
 </head>
-<body class="bg-slate-950 text-slate-200 p-8 font-sans min-h-screen">
+<body class="bg-white text-zinc-900 dark:bg-black dark:text-zinc-50 p-6 md:p-10 transition-colors duration-200 min-h-screen">
 
-    <header class="mb-8">
-        <h1 class="text-3xl font-semibold tracking-tight text-white">Homelab Performance</h1>
-        <p class="text-slate-400">Live 5-minute telemetry window (Upgraded Vanilla)</p>
+    <header class="flex flex-col md:flex-row md:items-end justify-between mb-10 pb-6 border-b border-zinc-200 dark:border-zinc-800">
+        <div>
+            <div class="flex items-center gap-4 mb-1">
+                <h1 class="text-2xl font-bold tracking-tight">Homelab Telemetry</h1>
+                <span id="status-badge" class="px-2.5 py-0.5 rounded-full text-xs font-medium border text-zinc-500 border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
+                    WAITING FOR DATA
+                </span>
+            </div>
+            <p class="text-sm text-zinc-500 dark:text-zinc-400">Live 5-minute rolling window</p>
+        </div>
+        
+        <button onclick="toggleTheme()" class="mt-4 md:mt-0 p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-500 transition-colors border border-zinc-200 dark:border-zinc-800" aria-label="Toggle Theme">
+            <i data-lucide="sun-moon" class="w-5 h-5"></i>
+        </button>
     </header>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center gap-3">
-                    <i data-lucide="cpu" class="text-blue-400 w-6 h-6"></i>
-                    <h2 class="text-xl font-medium">CPU Usage</h2>
+        <div class="bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg p-5">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="cpu" class="text-zinc-400 w-5 h-5"></i>
+                    <h2 class="text-sm font-semibold tracking-wide text-zinc-600 dark:text-zinc-300 uppercase">CPU Utilization</h2>
                 </div>
-                <span class="text-2xl font-bold text-blue-400" id="cpu-val">--%</span>
+                <span class="text-xl font-mono tracking-tight" id="cpu-val">--%</span>
             </div>
-            <div class="relative h-64 w-full">
+            <div class="relative h-48 w-full">
                 <canvas id="cpuChart"></canvas>
             </div>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center gap-3">
-                    <i data-lucide="memory-stick" class="text-purple-400 w-6 h-6"></i>
-                    <h2 class="text-xl font-medium">Memory</h2>
+        <div class="bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg p-5">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="memory-stick" class="text-zinc-400 w-5 h-5"></i>
+                    <h2 class="text-sm font-semibold tracking-wide text-zinc-600 dark:text-zinc-300 uppercase">Memory Usage</h2>
                 </div>
-                <div class="text-right">
-                    <span class="text-2xl font-bold text-purple-400" id="mem-val">--%</span>
-                </div>
+                <span class="text-xl font-mono tracking-tight" id="mem-val">--%</span>
             </div>
-            <div class="relative h-64 w-full">
+            <div class="relative h-48 w-full">
                 <canvas id="memChart"></canvas>
             </div>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg lg:col-span-2">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center gap-3">
-                    <i data-lucide="network" class="text-emerald-400 w-6 h-6"></i>
-                    <h2 class="text-xl font-medium">Network Throughput</h2>
+        <div class="bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 lg:col-span-2">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="arrow-down-up" class="text-zinc-400 w-5 h-5"></i>
+                    <h2 class="text-sm font-semibold tracking-wide text-zinc-600 dark:text-zinc-300 uppercase">Network Throughput</h2>
                 </div>
-                <div class="flex gap-6 text-right">
+                <div class="flex gap-6 text-right font-mono tracking-tight">
                     <div>
-                        <p class="text-xs text-slate-400">Download</p>
-                        <span class="text-lg font-bold text-emerald-400" id="net-down-val">-- Kbps</span>
+                        <span class="text-xs text-zinc-500 mr-2">RX</span>
+                        <span class="text-lg" id="net-down-val">-- kbps</span>
                     </div>
                     <div>
-                        <p class="text-xs text-slate-400">Upload</p>
-                        <span class="text-lg font-bold text-orange-400" id="net-up-val">-- Kbps</span>
+                        <span class="text-xs text-zinc-500 mr-2">TX</span>
+                        <span class="text-lg" id="net-up-val">-- kbps</span>
                     </div>
                 </div>
             </div>
-            <div class="relative h-64 w-full">
+            <div class="relative h-56 w-full">
                 <canvas id="netChart"></canvas>
             </div>
         </div>
@@ -85,98 +99,125 @@
         // Initialize Icons
         lucide.createIcons();
 
-        // Global Chart Defaults
-        Chart.defaults.color = '#64748b';
-        Chart.defaults.borderColor = '#334155';
-        
+        // --- Theme Management ---
+        function updateChartTheme() {
+            const isDark = document.documentElement.classList.contains('dark');
+            Chart.defaults.color = isDark ? '#71717a' : '#a1a1aa'; // text-zinc-500 / 400
+            Chart.defaults.borderColor = isDark ? '#27272a' : '#f4f4f5'; // border-zinc-800 / 100
+            
+            if(window.cpuChart && window.memChart && window.netChart) {
+                window.cpuChart.update();
+                window.memChart.update();
+                window.netChart.update();
+            }
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            updateChartTheme();
+        }
+
+        // --- Chart Configurations ---
         const commonOptions = {
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
-            plugins: { legend: { display: false } },
+            plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
             scales: {
-                x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
-                y: { min: 0, max: 100, border: { dash: [4, 4] } }
+                x: { grid: { display: false }, ticks: { maxTicksLimit: 6, font: { family: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' } } },
+                y: { min: 0, max: 100, border: { display: false }, ticks: { font: { family: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' } } }
             },
-            elements: { point: { radius: 0 } }
+            elements: { point: { radius: 0, hitRadius: 10, hoverRadius: 4 } },
+            interaction: { mode: 'nearest', axis: 'x', intersect: false }
         };
 
-        // Initialize Charts with "Area" fill styling
-        const cpuChart = new Chart(document.getElementById('cpuChart'), {
+        // Create standard gradient for lines
+        function createGradient(ctx, color) {
+            const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+            gradient.addColorStop(0, color);
+            gradient.addColorStop(1, 'transparent');
+            return gradient;
+        }
+
+        window.cpuChart = new Chart(document.getElementById('cpuChart').getContext('2d'), {
             type: 'line',
-            data: { labels: [], datasets: [{ data: [], borderColor: '#60a5fa', backgroundColor: 'rgba(59, 130, 246, 0.2)', fill: true, tension: 0.4 }] },
+            data: { labels: [], datasets: [{ data: [], borderColor: '#3b82f6', borderWidth: 2, backgroundColor: createGradient(document.getElementById('cpuChart').getContext('2d'), 'rgba(59, 130, 246, 0.2)'), fill: true, tension: 0.2 }] },
             options: commonOptions
         });
 
-        const memChart = new Chart(document.getElementById('memChart'), {
+        window.memChart = new Chart(document.getElementById('memChart').getContext('2d'), {
             type: 'line',
-            data: { labels: [], datasets: [{ data: [], borderColor: '#c084fc', backgroundColor: 'rgba(168, 85, 247, 0.2)', fill: true, tension: 0.4 }] },
+            data: { labels: [], datasets: [{ data: [], borderColor: '#8b5cf6', borderWidth: 2, backgroundColor: createGradient(document.getElementById('memChart').getContext('2d'), 'rgba(139, 92, 246, 0.2)'), fill: true, tension: 0.2 }] },
             options: commonOptions
         });
 
-        // Network Chart doesn't have a 100 max limit, so we copy options and delete max Y
         const netOptions = JSON.parse(JSON.stringify(commonOptions));
-        delete netOptions.scales.y.max;
-        netOptions.plugins.legend = { display: true, labels: { color: '#cbd5e1' } };
-
-        const netChart = new Chart(document.getElementById('netChart'), {
+        delete netOptions.scales.y.max; // Network has no 100% cap
+        
+        window.netChart = new Chart(document.getElementById('netChart').getContext('2d'), {
             type: 'line',
             data: { 
                 labels: [], 
                 datasets: [
-                    { label: 'Download', data: [], borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)', fill: true, tension: 0.4 },
-                    { label: 'Upload', data: [], borderColor: '#fb923c', backgroundColor: 'rgba(251, 146, 60, 0.1)', fill: true, tension: 0.4 }
+                    { label: 'Download', data: [], borderColor: '#10b981', borderWidth: 2, tension: 0.2 },
+                    { label: 'Upload', data: [], borderColor: '#f43f5e', borderWidth: 2, tension: 0.2 }
                 ] 
             },
             options: netOptions
         });
 
-        // Fetch Data Logic
+        // Initialize chart theme on load
+        updateChartTheme();
+
+        // --- Data Fetching Logic ---
         async function fetchTelemetry() {
             try {
                 const response = await fetch('/api/telemetry');
                 const result = await response.json();
                 
-                // --- NEW STATUS LOGIC ---
-                const headerTitle = document.querySelector('.header h1');
+                // Update Status Badge
+                const badge = document.getElementById('status-badge');
                 if (result.status === 'DOWN') {
-                    headerTitle.innerHTML = 'Homelab Performance <span class="text-red-500 text-sm ml-4 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">SERVER DOWN</span>';
-                } else {
-                    headerTitle.innerHTML = 'Homelab Performance <span class="text-emerald-500 text-sm ml-4 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">SERVER UP</span>';
+                    badge.textContent = 'SERVER DOWN';
+                    badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold border text-rose-600 border-rose-200 bg-rose-50 dark:text-rose-400 dark:border-rose-900/50 dark:bg-rose-950/50';
+                } else if (result.status === 'UP') {
+                    badge.textContent = 'SYSTEM ONLINE';
+                    badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold border text-emerald-600 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-900/50 dark:bg-emerald-950/50';
                 }
 
-                // Get the actual data array and reverse it
-                const sortedData = result.telemetry.reverse(); 
+                if (!result.telemetry || result.telemetry.length === 0) return;
 
-                const labels = [];
-                const cpuData = [], memData = [], downData = [], upData = [];
+                const sortedData = result.telemetry.reverse(); 
+                const labels = [], cpuData = [], memData = [], downData = [], upData = [];
 
                 sortedData.forEach(item => {
                     const date = new Date(item.timestamp);
-                    labels.push(date.toLocaleTimeString([], { hour12: false }));
+                    // Minimalist time format (HH:MM)
+                    labels.push(date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
                     cpuData.push(item.cpu_percent);
                     memData.push(item.memory.percent);
                     downData.push(item.network.download_kbps);
                     upData.push(item.network.upload_kbps);
                 });
 
-                cpuChart.data.labels = memChart.data.labels = netChart.data.labels = labels;
+                window.cpuChart.data.labels = window.memChart.data.labels = window.netChart.data.labels = labels;
+                window.cpuChart.data.datasets[0].data = cpuData; 
+                window.memChart.data.datasets[0].data = memData; 
+                window.netChart.data.datasets[0].data = downData;
+                window.netChart.data.datasets[1].data = upData;
                 
-                cpuChart.data.datasets[0].data = cpuData; cpuChart.update();
-                memChart.data.datasets[0].data = memData; memChart.update();
-                netChart.data.datasets[0].data = downData;
-                netChart.data.datasets[1].data = upData;
-                netChart.update();
+                window.cpuChart.update(); window.memChart.update(); window.netChart.update();
 
+                // Update text values
                 const latest = sortedData[sortedData.length - 1];
                 if(latest) {
                     document.getElementById('cpu-val').innerText = `${latest.cpu_percent.toFixed(1)}%`;
                     document.getElementById('mem-val').innerText = `${latest.memory.percent.toFixed(1)}%`;
-                    document.getElementById('net-down-val').innerText = `${latest.network.download_kbps.toFixed(0)} Kbps`;
-                    document.getElementById('net-up-val').innerText = `${latest.network.upload_kbps.toFixed(0)} Kbps`;
+                    document.getElementById('net-down-val').innerText = `${latest.network.download_kbps.toFixed(0)} kbps`;
+                    document.getElementById('net-up-val').innerText = `${latest.network.upload_kbps.toFixed(0)} kbps`;
                 }
             } catch (error) {
-                console.error("Waiting for telemetry data...");
+                console.error("Waiting for telemetry data...", error);
             }
         }
 
